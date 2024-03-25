@@ -1,0 +1,100 @@
+<html>
+
+<head>
+    <title>Simple Chat via Piping Server</title>
+    <style>
+        body,
+        input,
+        button {
+            font-size: 20px;
+        }
+        
+        .me {
+            text-align: right;
+            background-color: bisque;
+        }
+    </style>
+</head>
+
+<body>
+    <a target="_blank" href="https://dev.to/nwtgck/simple-chat-over-only-http-without-websocket-and-webrtc-1n4m">base on Ryo Ota</a>
+    <p>
+        <input placeholder="Your ID" id='your_id'>
+        <input placeholder="Peer ID" id='peer_id'>
+        <button onclick='receiveLoop(this)'>Connect</button>
+    </p>
+    <p style='position: absolute; bottom: 0;'>
+        <input placeholder="Message" id='message' size='50'>
+        <button onclick="send()">Send</button>
+    </p>
+
+    <hr>
+    <div id='talks'>
+        <!--This will be added by JavaScript -->
+    </div>
+    <script>
+        async function sha256(message) {
+            // Encode the message as a Uint8Array
+            const encodedMessage = new TextEncoder().encode(message);
+
+            // Generate the hash
+            const hashBuffer = await crypto.subtle.digest('SHA-256', encodedMessage);
+
+            // Convert the buffer to a hex string
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+
+            return hashHex;
+        }
+
+        async function getUrl(str) {
+            return `https://ppng.io/` + await sha256(str)
+        }
+
+        var check_url, post_url
+            // Receive-loop
+        async function receiveLoop(btn) {
+            your_id.disabled = peer_id.disabled = btn.disabled = true;
+            check_url = await getUrl(`${peer_id.value}-${your_id.value}`)
+            post_url = await getUrl(`${your_id.value}-${peer_id.value}`)
+            while (true) {
+                try {
+                    // Get peer's response
+                    // const url = `https://ppng.io/${peer_id.value}-${your_id.value}`
+                    const res = await fetch(check_url);
+                    // Create talk element
+                    const talk = document.createElement('div');
+                    // Set peer's message
+                    talk.innerText = await res.text();
+                    // Add peer's message
+                    talks.appendChild(talk);
+                } catch (err) {
+                    console.error(err);
+                }
+            }
+        }
+
+        // Send your message
+        async function send() {
+            // Send your message
+            // const url = `https://ppng.io/${your_id.value}-${peer_id.value}`
+            fetch(post_url, {
+                'method': 'POST',
+                body: message.value
+            });
+            // Create talk element
+            const talk = document.createElement('div');
+            talk.innerText = message.value;
+            talk.classList.add('me');
+            talks.appendChild(talk);
+            // Empty your message
+            message.value = '';
+        }
+        window.message.onkeyup = (ev) => {
+            if (ev.key === 'Enter') {
+                send()
+            }
+        }
+    </script>
+</body>
+<html>
